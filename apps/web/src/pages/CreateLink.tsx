@@ -9,6 +9,8 @@ export function CreateLink() {
   const navigate = useNavigate();
   const [url, setUrl] = useState("");
   const [slug, setSlug] = useState("");
+  const [expiresAt, setExpiresAt] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -17,10 +19,15 @@ export function CreateLink() {
     setError(null);
     setLoading(true);
     try {
+      const body: Record<string, unknown> = { url };
+      if (slug) body.slug = slug;
+      if (password) body.password = password;
+      if (expiresAt) body.expiresAt = new Date(expiresAt).toISOString();
+
       await apiFetch<ShortLink>("/links", {
         method: "POST",
         token,
-        body: JSON.stringify({ url, slug: slug || undefined }),
+        body: JSON.stringify(body),
       });
       navigate("/");
     } catch (err) {
@@ -56,6 +63,29 @@ export function CreateLink() {
           />
           <span className="mt-1 block text-xs text-slate-500">
             3-32 characters, letters/numbers/hyphens/underscores.
+          </span>
+        </label>
+        <label className="block text-sm">
+          <span className="text-slate-700">Expires at (optional)</span>
+          <input
+            type="datetime-local"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+            className="mt-1 block w-full rounded border border-slate-300 px-3 py-2"
+          />
+        </label>
+        <label className="block text-sm">
+          <span className="text-slate-700">Password (optional)</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={4}
+            maxLength={64}
+            className="mt-1 block w-full rounded border border-slate-300 px-3 py-2"
+          />
+          <span className="mt-1 block text-xs text-slate-500">
+            Visitors will be prompted before the redirect happens.
           </span>
         </label>
         {error && <p className="text-sm text-red-600">{error}</p>}

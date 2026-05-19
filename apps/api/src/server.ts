@@ -5,8 +5,9 @@ import { config } from "./config.js";
 import { authRoutes } from "./routes/auth.js";
 import { linkRoutes } from "./routes/links.js";
 import { redirectRoutes } from "./routes/redirect.js";
+import { analyticsRoutes } from "./routes/analytics.js";
 
-const app = Fastify({ logger: true });
+const app = Fastify({ logger: true, trustProxy: true });
 
 await app.register(cors, { origin: config.WEB_ORIGIN, credentials: true });
 await app.register(jwt, { secret: config.JWT_SECRET });
@@ -15,6 +16,7 @@ app.get("/health", async () => ({ status: "ok" }));
 
 await app.register(authRoutes);
 await app.register(linkRoutes);
+await app.register(analyticsRoutes);
 await app.register(redirectRoutes);
 
 try {
