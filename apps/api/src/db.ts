@@ -23,11 +23,33 @@ db.exec(`
     slug TEXT NOT NULL UNIQUE,
     url TEXT NOT NULL,
     clicks INTEGER NOT NULL DEFAULT 0,
+    expires_at TEXT,
+    password_hash TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
   CREATE INDEX IF NOT EXISTS idx_links_user ON links(user_id);
+
+  CREATE TABLE IF NOT EXISTS clicks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    link_id INTEGER NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+    referer TEXT,
+    user_agent TEXT,
+    ip TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_clicks_link ON clicks(link_id);
+  CREATE INDEX IF NOT EXISTS idx_clicks_created ON clicks(created_at);
 `);
+
+const linkCols = db.prepare("PRAGMA table_info(links)").all() as { name: string }[];
+if (!linkCols.some((c) => c.name === "expires_at")) {
+  db.exec("ALTER TABLE links ADD COLUMN expires_at TEXT");
+}
+if (!linkCols.some((c) => c.name === "password_hash")) {
+  db.exec("ALTER TABLE links ADD COLUMN password_hash TEXT");
+}
 
 export type UserRow = {
   id: number;
@@ -42,5 +64,16 @@ export type LinkRow = {
   slug: string;
   url: string;
   clicks: number;
+  expires_at: string | null;
+  password_hash: string | null;
+  created_at: string;
+};
+
+export type ClickRow = {
+  id: number;
+  link_id: number;
+  referer: string | null;
+  user_agent: string | null;
+  ip: string | null;
   created_at: string;
 };

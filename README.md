@@ -33,7 +33,11 @@ The API uses a local SQLite file at `apps/api/data/app.sqlite` (auto-created on 
 
 - Register / login (JWT, stored in `localStorage`)
 - Create short links with optional custom slug
+- Optional link expiration (`expiresAt`)
+- Optional password-protected links
 - Public redirect endpoint at `GET /:slug`
-- Dashboard listing your own links
+- Per-link click analytics (last 30 days, top referrers)
+- Per-user rate limit on link creation
+- Dashboard listing your own links, with delete + copy-to-clipboard
 
 See open PRs for in-flight work.

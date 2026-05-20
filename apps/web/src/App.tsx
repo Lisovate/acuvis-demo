@@ -5,6 +5,7 @@ import { Login } from "./pages/Login.js";
 import { Register } from "./pages/Register.js";
 import { Dashboard } from "./pages/Dashboard.js";
 import { CreateLink } from "./pages/CreateLink.js";
+import { LinkDetails } from "./pages/LinkDetails.js";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { token } = useAuth();
@@ -31,6 +32,14 @@ export function App() {
           element={
             <RequireAuth>
               <CreateLink />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/links/:id"
+          element={
+            <RequireAuth>
+              <LinkDetails />
             </RequireAuth>
           }
         />
