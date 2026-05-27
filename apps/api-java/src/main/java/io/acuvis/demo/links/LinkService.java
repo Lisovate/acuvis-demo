@@ -3,6 +3,7 @@ package io.acuvis.demo.links;
 import java.security.SecureRandom;
 import java.util.List;
 
+import io.acuvis.demo.auth.LinkPasswordHasher;
 import io.acuvis.demo.auth.User;
 import io.acuvis.demo.links.LinkDtos.CreateLinkRequest;
 import io.acuvis.demo.links.LinkDtos.LinkResponse;
@@ -18,10 +19,12 @@ public class LinkService {
     private static final int SLUG_LENGTH = 8;
 
     private final LinkRepository links;
+    private final LinkPasswordHasher hasher;
     private final SecureRandom random = new SecureRandom();
 
-    public LinkService(LinkRepository links) {
+    public LinkService(LinkRepository links, LinkPasswordHasher hasher) {
         this.links = links;
+        this.hasher = hasher;
     }
 
     public LinkResponse create(CreateLinkRequest req, User owner) {
@@ -33,6 +36,10 @@ public class LinkService {
         link.setSlug(slug);
         link.setTargetUrl(req.targetUrl());
         link.setOwner(owner);
+        link.setExpiresAt(req.expiresAt());
+        if (req.password() != null && !req.password().isBlank()) {
+            link.setPasswordHash(hasher.hash(req.password()));
+        }
         Link saved = links.save(link);
         return toResponse(saved);
     }
@@ -42,7 +49,13 @@ public class LinkService {
     }
 
     private LinkResponse toResponse(Link link) {
-        return new LinkResponse(link.getId(), link.getSlug(), link.getTargetUrl(), link.getCreatedAt());
+        return new LinkResponse(
+                link.getId(),
+                link.getSlug(),
+                link.getTargetUrl(),
+                link.getCreatedAt(),
+                link.getExpiresAt(),
+                link.getPasswordHash() != null);
     }
 
     private String generateSlug() {
