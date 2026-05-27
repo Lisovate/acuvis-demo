@@ -1,6 +1,7 @@
 package io.acuvis.demo.config;
 
 import io.acuvis.demo.auth.AuthInterceptor;
+import io.acuvis.demo.middleware.RateLimitInterceptor;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,16 +17,20 @@ public class AppConfig implements WebMvcConfigurer {
 
     private final AppProperties props;
     private final AuthInterceptor authInterceptor;
+    private final RateLimitInterceptor rateLimit;
 
-    public AppConfig(AppProperties props, AuthInterceptor authInterceptor) {
+    public AppConfig(AppProperties props,
+                     AuthInterceptor authInterceptor,
+                     RateLimitInterceptor rateLimit) {
         this.props = props;
         this.authInterceptor = authInterceptor;
+        this.rateLimit = rateLimit;
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        // Strong work factor for user passwords. Link gate passwords use a
-        // separate (cheaper) hasher — see LinkPasswordHasher.
+        // Strong work factor for user passwords. Link gate passwords use
+        // a separate (cheaper) hasher — see LinkPasswordHasher.
         return new BCryptPasswordEncoder(12);
     }
 
@@ -40,8 +45,9 @@ public class AppConfig implements WebMvcConfigurer {
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(authInterceptor)
-                .addPathPatterns("/links/**")
-                .excludePathPatterns("/links/*/redirect");
+        // Rate limit fires BEFORE auth so a flood of bad-token requests
+        // can't spend bcrypt cycles on the auth path.
+        registry.addInterceptor(rateLimit).addPathPatterns("/links");
+        registry.addInterceptor(authInterceptor).addPathPatterns("/links/**");
     }
 }
