@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..db import get_session
 from ..deps import current_user
+from ..lib.passwords import hash_link_password
 from ..models import Link, User
 from ..schemas.link import CreateLinkRequest, LinkResponse
 
@@ -21,6 +22,17 @@ def _generate_slug(length: int = 8) -> str:
     return "".join(secrets.choice(_SLUG_ALPHABET) for _ in range(length))
 
 
+def _to_response(link: Link) -> LinkResponse:
+    return LinkResponse(
+        id=link.id,
+        slug=link.slug,
+        target_url=link.target_url,
+        created_at=link.created_at,
+        expires_at=link.expires_at,
+        password_protected=link.password_hash is not None,
+    )
+
+
 @router.post("", response_model=LinkResponse, status_code=status.HTTP_201_CREATED)
 def create_link(
     payload: CreateLinkRequest,
@@ -31,16 +43,17 @@ def create_link(
     existing = session.query(Link).filter(Link.slug == slug).first()
     if existing is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, detail="slug already in use")
-    link = Link(slug=slug, target_url=str(payload.target_url), owner_id=user.id)
+    link = Link(
+        slug=slug,
+        target_url=str(payload.target_url),
+        owner_id=user.id,
+        expires_at=payload.expires_at,
+        password_hash=hash_link_password(payload.password) if payload.password else None,
+    )
     session.add(link)
     session.commit()
     session.refresh(link)
-    return LinkResponse(
-        id=link.id,
-        slug=link.slug,
-        target_url=link.target_url,
-        created_at=link.created_at,
-    )
+    return _to_response(link)
 
 
 @router.get("", response_model=list[LinkResponse])
@@ -54,9 +67,4 @@ def list_links(
         .order_by(Link.created_at.desc())
         .all()
     )
-    return [
-        LinkResponse(
-            id=row.id, slug=row.slug, target_url=row.target_url, created_at=row.created_at
-        )
-        for row in rows
-    ]
+    return [_to_response(row) for row in rows]
