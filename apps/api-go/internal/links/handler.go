@@ -67,10 +67,12 @@ func (h *Handler) ListLinks(w http.ResponseWriter, r *http.Request) {
 
 func toResponse(l *Link) LinkResponse {
 	return LinkResponse{
-		ID:        l.ID,
-		Slug:      l.Slug,
-		TargetURL: l.TargetURL,
-		CreatedAt: l.CreatedAt,
+		ID:                l.ID,
+		Slug:              l.Slug,
+		TargetURL:         l.TargetURL,
+		CreatedAt:         l.CreatedAt,
+		ExpiresAt:         l.ExpiresAt,
+		PasswordProtected: l.HasPassword(),
 	}
 }
 

@@ -5,6 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
+
+	"github.com/Lisovate/acuvis-demo/apps/api-go/internal/passwords"
 )
 
 // Service holds link CRUD logic. Constructed once at startup with the
@@ -36,9 +39,17 @@ func (s *Service) Create(req CreateLinkRequest, ownerID int64) (*Link, error) {
 		}
 		slug = generated
 	}
+	var passwordHash sql.NullString
+	if req.Password != "" {
+		passwordHash = sql.NullString{String: passwords.Hash(req.Password), Valid: true}
+	}
+	var expiresAt sql.NullTime
+	if req.ExpiresAt != nil {
+		expiresAt = sql.NullTime{Time: *req.ExpiresAt, Valid: true}
+	}
 	res, err := s.db.Exec(
-		`INSERT INTO links(slug, target_url, owner_id) VALUES (?, ?, ?)`,
-		slug, req.TargetURL, ownerID,
+		`INSERT INTO links(slug, target_url, owner_id, expires_at, password_hash) VALUES (?, ?, ?, ?, ?)`,
+		slug, req.TargetURL, ownerID, expiresAt, passwordHash,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -47,13 +58,22 @@ func (s *Service) Create(req CreateLinkRequest, ownerID int64) (*Link, error) {
 		return nil, fmt.Errorf("insert link: %w", err)
 	}
 	id, _ := res.LastInsertId()
-	return s.findByID(id)
+	return s.FindByID(id)
 }
 
 // FindBySlug looks up a link by its public slug. Used by the redirect
 // handler; doesn't filter by owner.
 func (s *Service) FindBySlug(slug string) (*Link, error) {
-	link, err := s.scanOne(`SELECT id, slug, target_url, owner_id, created_at FROM links WHERE slug = ?`, slug)
+	link, err := s.scanOne(`SELECT id, slug, target_url, owner_id, created_at, expires_at, password_hash FROM links WHERE slug = ?`, slug)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	return link, err
+}
+
+// FindByID is used by ownership checks (e.g. in the analytics handler).
+func (s *Service) FindByID(id int64) (*Link, error) {
+	link, err := s.scanOne(`SELECT id, slug, target_url, owner_id, created_at, expires_at, password_hash FROM links WHERE id = ?`, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -63,7 +83,7 @@ func (s *Service) FindBySlug(slug string) (*Link, error) {
 // List returns the caller's links ordered by creation date desc.
 func (s *Service) List(ownerID int64) ([]Link, error) {
 	rows, err := s.db.Query(
-		`SELECT id, slug, target_url, owner_id, created_at FROM links WHERE owner_id = ? ORDER BY created_at DESC`,
+		`SELECT id, slug, target_url, owner_id, created_at, expires_at, password_hash FROM links WHERE owner_id = ? ORDER BY created_at DESC`,
 		ownerID,
 	)
 	if err != nil {
@@ -72,24 +92,47 @@ func (s *Service) List(ownerID int64) ([]Link, error) {
 	defer rows.Close()
 	var out []Link
 	for rows.Next() {
-		var l Link
-		if err := rows.Scan(&l.ID, &l.Slug, &l.TargetURL, &l.OwnerID, &l.CreatedAt); err != nil {
+		l, err := scanRow(rows)
+		if err != nil {
 			return nil, err
 		}
-		out = append(out, l)
+		out = append(out, *l)
 	}
 	return out, rows.Err()
 }
 
-func (s *Service) findByID(id int64) (*Link, error) {
-	return s.scanOne(`SELECT id, slug, target_url, owner_id, created_at FROM links WHERE id = ?`, id)
+// Expired returns true if the link has a non-nil ExpiresAt that has passed.
+func (l *Link) Expired() bool {
+	return l.ExpiresAt != nil && l.ExpiresAt.Before(time.Now())
+}
+
+// HasPassword returns true if the link has a non-empty stored hash.
+func (l *Link) HasPassword() bool {
+	return l.PasswordHash != ""
 }
 
 func (s *Service) scanOne(query string, args ...any) (*Link, error) {
 	row := s.db.QueryRow(query, args...)
+	return scanRow(row)
+}
+
+type scannable interface {
+	Scan(...any) error
+}
+
+func scanRow(row scannable) (*Link, error) {
 	var l Link
-	if err := row.Scan(&l.ID, &l.Slug, &l.TargetURL, &l.OwnerID, &l.CreatedAt); err != nil {
+	var expiresAt sql.NullTime
+	var passwordHash sql.NullString
+	if err := row.Scan(&l.ID, &l.Slug, &l.TargetURL, &l.OwnerID, &l.CreatedAt, &expiresAt, &passwordHash); err != nil {
 		return nil, err
+	}
+	if expiresAt.Valid {
+		t := expiresAt.Time
+		l.ExpiresAt = &t
+	}
+	if passwordHash.Valid {
+		l.PasswordHash = passwordHash.String
 	}
 	return &l, nil
 }

@@ -45,14 +45,55 @@ CREATE TABLE IF NOT EXISTS links (
     slug            TEXT NOT NULL UNIQUE,
     target_url      TEXT NOT NULL,
     owner_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at      DATETIME,
+    password_hash   TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_links_slug ON links(slug);
 CREATE INDEX IF NOT EXISTS idx_links_owner ON links(owner_id);
+
+CREATE TABLE IF NOT EXISTS clicks (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    link_id         INTEGER NOT NULL REFERENCES links(id) ON DELETE CASCADE,
+    occurred_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ip_address      TEXT,
+    user_agent      TEXT,
+    referer         TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_clicks_link_id ON clicks(link_id);
+
+-- Idempotent column adds for upgrades from the v0.1 schema. SQLite
+-- doesn't support IF NOT EXISTS on ALTER, so we eat duplicate-column
+-- errors below at the Go layer.
 `
 	if _, err := conn.Exec(schema); err != nil {
 		return fmt.Errorf("apply schema: %w", err)
 	}
+	for _, stmt := range []string{
+		`ALTER TABLE links ADD COLUMN expires_at DATETIME`,
+		`ALTER TABLE links ADD COLUMN password_hash TEXT`,
+	} {
+		if _, err := conn.Exec(stmt); err != nil {
+			// Existing-column error is benign — anything else is fatal.
+			if !isDuplicateColumn(err) {
+				return fmt.Errorf("alter links: %w", err)
+			}
+		}
+	}
 	return nil
+}
+
+func isDuplicateColumn(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	for i := 0; i+len("duplicate column name") <= len(s); i++ {
+		if s[i:i+len("duplicate column name")] == "duplicate column name" {
+			return true
+		}
+	}
+	return false
 }
