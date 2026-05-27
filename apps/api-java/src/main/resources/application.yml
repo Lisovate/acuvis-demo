@@ -1,0 +1,22 @@
+server:
+  port: 4000
+
+spring:
+  datasource:
+    url: jdbc:sqlite:data/app.sqlite
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    hibernate:
+      ddl-auto: update
+    database-platform: org.hibernate.community.dialect.SQLiteDialect
+    show-sql: false
+    properties:
+      hibernate.format_sql: false
+
+acuvis:
+  jwt:
+    secret: dev-only-secret-not-for-prod-rotate-on-deploy
+    ttl-seconds: 604800
+  cors:
+    origins:
+      - http://localhost:5173
