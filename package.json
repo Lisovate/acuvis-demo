@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "dev:api": "pnpm --filter @acuvis-demo/api dev",
+    "dev:api": "cd apps/api-python && uvicorn app.main:app --reload --port 4000",
     "dev:web": "pnpm --filter @acuvis-demo/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck"
