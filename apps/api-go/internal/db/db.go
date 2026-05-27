@@ -1,0 +1,58 @@
+// Package db owns the *sql.DB handle and the migration step. Sub-packages
+// receive *sql.DB via constructor injection rather than calling Open
+// directly.
+package db
+
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
+
+	_ "github.com/mattn/go-sqlite3"
+)
+
+// Open creates the parent directory if missing, opens the SQLite handle,
+// and applies the schema. Returns a ready-to-use *sql.DB.
+func Open(path string) (*sql.DB, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return nil, fmt.Errorf("create data dir: %w", err)
+	}
+	conn, err := sql.Open("sqlite3", path+"?_foreign_keys=on&_journal_mode=WAL")
+	if err != nil {
+		return nil, fmt.Errorf("open sqlite: %w", err)
+	}
+	if err := Migrate(conn); err != nil {
+		conn.Close()
+		return nil, err
+	}
+	return conn, nil
+}
+
+// Migrate applies the baseline schema. Idempotent — safe to call on a
+// fresh or existing DB.
+func Migrate(conn *sql.DB) error {
+	const schema = `
+CREATE TABLE IF NOT EXISTS users (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    email           TEXT NOT NULL UNIQUE,
+    password_hash   TEXT NOT NULL,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS links (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug            TEXT NOT NULL UNIQUE,
+    target_url      TEXT NOT NULL,
+    owner_id        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_links_slug ON links(slug);
+CREATE INDEX IF NOT EXISTS idx_links_owner ON links(owner_id);
+`
+	if _, err := conn.Exec(schema); err != nil {
+		return fmt.Errorf("apply schema: %w", err)
+	}
+	return nil
+}
