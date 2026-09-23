@@ -1,9 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import { createLinkSchema } from "@acuvis-demo/shared";
 import { nanoid } from "nanoid";
+import { z } from "zod";
 import { db, type LinkRow } from "../db.js";
 import { requireAuth } from "../middleware/auth.js";
 import type { JwtPayload } from "../auth.js";
+
+// Dashboard pages through links newest-first. The total goes in a header so
+// the response body stays an array and existing clients keep working.
+const listQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
 
 function rowToLink(row: LinkRow) {
   return {
@@ -18,11 +26,20 @@ function rowToLink(row: LinkRow) {
 export async function linkRoutes(app: FastifyInstance) {
   app.addHook("preHandler", requireAuth);
 
-  app.get("/links", async (req) => {
+  app.get("/links", async (req, reply) => {
+    const query = listQuerySchema.safeParse(req.query);
+    if (!query.success) {
+      return reply.code(400).send({ error: "invalid_query", issues: query.error.issues });
+    }
+    const { limit, offset } = query.data;
     const user = req.user as JwtPayload;
     const rows = db
-      .prepare("SELECT * FROM links WHERE user_id = ? ORDER BY id DESC")
-      .all(user.sub) as LinkRow[];
+      .prepare("SELECT * FROM links WHERE user_id = ? ORDER BY id DESC LIMIT ? OFFSET ?")
+      .all(user.sub, limit, offset) as LinkRow[];
+    const { total } = db
+      .prepare("SELECT COUNT(*) AS total FROM links WHERE user_id = ?")
+      .get(user.sub) as { total: number };
+    reply.header("X-Total-Count", String(total));
     return rows.map(rowToLink);
   });
 
