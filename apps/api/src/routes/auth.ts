@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { loginSchema, registerSchema } from "@acuvis-demo/shared";
 import { db, type UserRow } from "../db.js";
 import { hashPassword, verifyPassword } from "../auth.js";
+import { createPersonalWorkspace } from "./workspaces.js";
 
 export async function authRoutes(app: FastifyInstance) {
   app.post("/auth/register", async (req, reply) => {
@@ -21,6 +22,8 @@ export async function authRoutes(app: FastifyInstance) {
       .run(parsed.data.email, hash);
 
     const id = Number(result.lastInsertRowid);
+    // Every account starts with a personal workspace it owns.
+    createPersonalWorkspace(id, parsed.data.email);
     const token = await reply.jwtSign({ sub: id, email: parsed.data.email });
     return reply.code(201).send({ token, user: { id, email: parsed.data.email } });
   });

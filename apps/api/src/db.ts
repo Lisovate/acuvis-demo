@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { config } from "./config.js";
+import { migrate } from "./migrations/index.js";
 
 mkdirSync(dirname(config.DATABASE_PATH), { recursive: true });
 
@@ -9,25 +10,7 @@ export const db = new Database(config.DATABASE_PATH);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE TABLE IF NOT EXISTS links (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    slug TEXT NOT NULL UNIQUE,
-    url TEXT NOT NULL,
-    clicks INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-
-  CREATE INDEX IF NOT EXISTS idx_links_user ON links(user_id);
-`);
+migrate(db);
 
 export type UserRow = {
   id: number;
@@ -39,8 +22,58 @@ export type UserRow = {
 export type LinkRow = {
   id: number;
   user_id: number;
+  workspace_id: number;
   slug: string;
   url: string;
   clicks: number;
+  created_at: string;
+};
+
+export type WorkspaceRow = {
+  id: number;
+  name: string;
+  personal_for: number | null;
+  created_at: string;
+};
+
+export type MembershipRow = {
+  workspace_id: number;
+  user_id: number;
+  role: "owner" | "admin" | "member";
+  created_at: string;
+};
+
+export type InviteRow = {
+  id: number;
+  workspace_id: number;
+  email: string;
+  role: "owner" | "admin" | "member";
+  token: string;
+  invited_by: number;
+  expires_at: string;
+  accepted_at: string | null;
+  created_at: string;
+};
+
+export type WebhookRow = {
+  id: number;
+  workspace_id: number;
+  url: string;
+  events: string;
+  description: string | null;
+  secret: string;
+  active: number;
+  created_by: number;
+  created_at: string;
+};
+
+export type DeliveryRow = {
+  id: number;
+  webhook_id: number;
+  event: string;
+  payload: string;
+  status: "pending" | "succeeded" | "failed";
+  attempts: number;
+  response_status: number | null;
   created_at: string;
 };
