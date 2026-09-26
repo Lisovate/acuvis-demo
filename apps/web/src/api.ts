@@ -12,14 +12,15 @@ export class ApiError extends Error {
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit & { token?: string | null } = {},
+  options: RequestInit & { token?: string | null; workspaceId?: number | null } = {},
 ): Promise<T> {
-  const { token, headers, ...rest } = options;
+  const { token, workspaceId, headers, ...rest } = options;
   const res = await fetch(`${API_BASE}${path}`, {
     ...rest,
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(workspaceId ? { "X-Workspace-Id": String(workspaceId) } : {}),
       ...headers,
     },
   });

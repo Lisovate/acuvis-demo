@@ -1,9 +1,11 @@
 import { Link, useNavigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useAuth } from "../auth.js";
+import { WorkspaceSwitcher } from "./WorkspaceSwitcher.js";
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { user, logout } = useAuth();
+  const { user, logout, activeWorkspace } = useAuth();
+  const canManage = activeWorkspace?.role === "owner" || activeWorkspace?.role === "admin";
   const navigate = useNavigate();
 
   return (
@@ -16,6 +18,15 @@ export function Layout({ children }: { children: ReactNode }) {
           <nav className="flex items-center gap-4 text-sm">
             {user ? (
               <>
+                <WorkspaceSwitcher />
+                <Link to="/members" className="hover:underline">
+                  Members
+                </Link>
+                {canManage && (
+                  <Link to="/webhooks" className="hover:underline">
+                    Webhooks
+                  </Link>
+                )}
                 <span className="text-slate-500">{user.email}</span>
                 <button
                   onClick={() => {
