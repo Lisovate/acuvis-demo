@@ -5,7 +5,7 @@ import { apiFetch } from "../api.js";
 import { useAuth } from "../auth.js";
 
 export function CreateLink() {
-  const { token } = useAuth();
+  const { token, activeWorkspace } = useAuth();
   const navigate = useNavigate();
   const [url, setUrl] = useState("");
   const [slug, setSlug] = useState("");
@@ -20,6 +20,7 @@ export function CreateLink() {
       await apiFetch<ShortLink>("/links", {
         method: "POST",
         token,
+        workspaceId: activeWorkspace?.id,
         body: JSON.stringify({ url, slug: slug || undefined }),
       });
       navigate("/");

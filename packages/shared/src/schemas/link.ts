@@ -12,6 +12,8 @@ export const linkSchema = z.object({
   slug: z.string(),
   url: z.string().url(),
   clicks: z.number().int().nonnegative(),
+  workspaceId: z.number().int().positive(),
+  createdBy: z.number().int().positive(),
   createdAt: z.string(),
 });
 

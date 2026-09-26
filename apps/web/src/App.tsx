@@ -5,6 +5,9 @@ import { Login } from "./pages/Login.js";
 import { Register } from "./pages/Register.js";
 import { Dashboard } from "./pages/Dashboard.js";
 import { CreateLink } from "./pages/CreateLink.js";
+import { Members } from "./pages/Members.js";
+import { Webhooks } from "./pages/Webhooks.js";
+import { AcceptInvite } from "./pages/AcceptInvite.js";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
   const { token } = useAuth();
@@ -31,6 +34,30 @@ export function App() {
           element={
             <RequireAuth>
               <CreateLink />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/members"
+          element={
+            <RequireAuth>
+              <Members />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/webhooks"
+          element={
+            <RequireAuth>
+              <Webhooks />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/invite"
+          element={
+            <RequireAuth>
+              <AcceptInvite />
             </RequireAuth>
           }
         />
