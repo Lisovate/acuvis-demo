@@ -31,6 +31,15 @@ The API uses a local SQLite file at `apps/api/data/app.sqlite` (auto-created on 
 
 API requests that work inside a workspace send its id in the `X-Workspace-Id` header.
 
+### API configuration
+
+| Variable | Default | What it does |
+|---|---|---|
+| `PUBLIC_WEB_URL` | `http://localhost:5173` | Base URL used in invite links |
+| `INVITE_TTL_DAYS` | `7` | How long an invite stays valid |
+| `WEBHOOK_TIMEOUT_MS` | `10000` | Timeout for one webhook delivery attempt |
+| `WEBHOOK_MAX_ATTEMPTS` | `5` | Delivery attempts before a webhook delivery is marked failed |
+
 ```sh
 pnpm --filter @acuvis-demo/api test
 ```
