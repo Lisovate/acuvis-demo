@@ -16,6 +16,8 @@ export function Dashboard() {
   }, [token]);
 
   async function remove(id: number) {
+    const link = links?.find((l) => l.id === id);
+    if (!confirm(`Delete /${link?.slug ?? id}? This can't be undone.`)) return;
     await apiFetch<void>(`/links/${id}`, { token, method: "DELETE" });
     setLinks((prev) => prev?.filter((l) => l.id !== id) ?? null);
   }
