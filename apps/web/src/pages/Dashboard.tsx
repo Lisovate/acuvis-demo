@@ -15,6 +15,13 @@ export function Dashboard() {
       .catch((err) => setError(err.message ?? "failed_to_load"));
   }, [token]);
 
+  async function remove(id: number) {
+    const link = links?.find((l) => l.id === id);
+    if (!confirm(`Delete /${link?.slug ?? id}? This can't be undone.`)) return;
+    await apiFetch<void>(`/links/${id}`, { token, method: "DELETE" });
+    setLinks((prev) => prev?.filter((l) => l.id !== id) ?? null);
+  }
+
   return (
     <section>
       <div className="flex items-center justify-between">
@@ -40,7 +47,16 @@ export function Dashboard() {
                 <p className="font-mono text-sm text-indigo-700">/{link.slug}</p>
                 <p className="text-sm text-slate-500">{link.url}</p>
               </div>
-              <span className="text-sm text-slate-500">{link.clicks} clicks</span>
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-slate-500">{link.clicks} clicks</span>
+                <button
+                  type="button"
+                  onClick={() => remove(link.id)}
+                  className="text-sm text-red-600 hover:underline"
+                >
+                  Delete
+                </button>
+              </div>
             </li>
           ))}
         </ul>

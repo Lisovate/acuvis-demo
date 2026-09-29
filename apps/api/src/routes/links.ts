@@ -49,4 +49,17 @@ export async function linkRoutes(app: FastifyInstance) {
       .get(result.lastInsertRowid) as LinkRow;
     return reply.code(201).send(rowToLink(row));
   });
+
+  app.delete<{ Params: { id: string } }>("/links/:id", async (req, reply) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return reply.code(400).send({ error: "invalid_id" });
+    }
+
+    const result = db.prepare("DELETE FROM links WHERE id = ?").run(id);
+    if (result.changes === 0) {
+      return reply.code(404).send({ error: "not_found" });
+    }
+    return reply.code(204).send();
+  });
 }
